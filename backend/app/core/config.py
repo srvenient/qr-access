@@ -2,9 +2,8 @@ import secrets
 from typing import Annotated, Any
 
 from pydantic import AnyUrl, BeforeValidator, computed_field
-from pydantic.v1 import BaseSettings
 from pydantic_core import MultiHostUrl
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def parse_cors(v: Any) -> list[str] | str:
