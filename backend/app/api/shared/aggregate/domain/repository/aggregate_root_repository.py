@@ -15,7 +15,7 @@ class AggregateRootRepository(ABC):
     """
 
     @abstractmethod
-    def delete_sync(self) -> bool:
+    def delete_sync(self, _id: str) -> bool:
         """
         Deletes the current aggregate root from the repository.
 
@@ -24,7 +24,7 @@ class AggregateRootRepository(ABC):
         pass
 
     @abstractmethod
-    def delete_all_sync(self):
+    def delete_all_sync(self) -> None:
         """
         Deletes all aggregate roots from the repository.
 
@@ -33,7 +33,7 @@ class AggregateRootRepository(ABC):
         pass
 
     @abstractmethod
-    def delete_and_retrieve_sync(self) -> Optional[T]:
+    def delete_and_retrieve_sync(self, _id: str) -> Optional[T]:
         """
         Deletes the current aggregate root from the repository and returns it.
 
@@ -42,7 +42,7 @@ class AggregateRootRepository(ABC):
         pass
 
     @abstractmethod
-    def exists_sync(self) -> bool:
+    def exists_sync(self, _id: str) -> bool:
         """
         Checks if the current aggregate root exists in the repository.
 
@@ -79,7 +79,7 @@ class AggregateRootRepository(ABC):
         pass
 
     @abstractmethod
-    def save_sync(self, aggregate_root: T):
+    def save_sync(self, aggregate_root: T) -> None:
         """
         Saves the given aggregate root to the repository.
         If it already exists, it will be updated.
