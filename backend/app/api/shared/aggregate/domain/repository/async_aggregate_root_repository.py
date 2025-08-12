@@ -1,6 +1,6 @@
 import asyncio
 from abc import ABC
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Generic
 
 from app.api.shared.aggregate.domain.aggregate_root import AggregateRoot
 from app.api.shared.aggregate.domain.repository.aggregate_root_repository import AggregateRootRepository
@@ -8,7 +8,7 @@ from app.api.shared.aggregate.domain.repository.aggregate_root_repository import
 T = TypeVar("T", bound=AggregateRoot)
 
 
-class AsyncAggregateRootRepository(AggregateRootRepository, ABC):
+class AsyncAggregateRootRepository(AggregateRootRepository[T], ABC):
     """
     Asynchronous wrapper for AggregateRootRepository methods.
     Executes the synchronous implementation in a thread pool using asyncio.to_thread.
