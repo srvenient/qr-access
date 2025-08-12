@@ -28,9 +28,11 @@ class Settings(BaseSettings):
     PROJECT_DESCRIPTION: str = "qr-access"
 
     API_V1_STR: str = "/api/v1"
+
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 60 minutes
-    ACCESS_TOKEN_LIFETIME: int = 300
+    ALGORITHM: str = "HS256"
+
     FRONTEND_URL: str = "http://127.0.0.1:3000"
 
     BACKEND_CORS_ORIGINS: Annotated[
