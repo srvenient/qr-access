@@ -8,25 +8,31 @@ T = TypeVar("T", bound=AggregateRoot)
 
 class AggregateRootRepository(ABC, Generic[T]):
     """
-    Base class for all Aggregate Root Repositories in the domain.
-    Provides the essential methods to manage aggregate roots in a DDD context.
+    Abstract base class for all Aggregate Root repositories in the domain layer.
 
+    This interface defines the essential synchronous CRUD operations for working
+    with Aggregate Roots in a Domain-Driven Design (DDD) context.
+
+    Concrete implementations should handle the persistence logic (e.g., SQL, NoSQL, in-memory).
+
+    :param T: The type of Aggregate Root this repository manages.
     :since: 0.0.1
     """
 
     @abstractmethod
     def delete_sync(self, _id: str) -> bool:
         """
-        Deletes the current aggregate root from the repository.
+        Remove an Aggregate Root from the repository by its unique identifier.
 
-        :return: True if the deletion was successful, False otherwise.
+        :param _id: The unique identifier of the Aggregate Root to delete.
+        :return: True if the Aggregate Root was found and deleted, False otherwise.
         """
         pass
 
     @abstractmethod
     def delete_all_sync(self) -> None:
         """
-        Deletes all aggregate roots from the repository.
+        Remove all Aggregate Roots from the repository.
 
         :return: None
         """
@@ -35,56 +41,58 @@ class AggregateRootRepository(ABC, Generic[T]):
     @abstractmethod
     def delete_and_retrieve_sync(self, _id: str) -> Optional[T]:
         """
-        Deletes the current aggregate root from the repository and returns it.
+        Remove an Aggregate Root from the repository and return the deleted instance.
 
-        :return: The deleted aggregate root, or None if it was not found.
+        :param _id: The unique identifier of the Aggregate Root to delete.
+        :return: The deleted Aggregate Root instance, or None if it was not found.
         """
         pass
 
     @abstractmethod
     def exists_sync(self, _id: str) -> bool:
         """
-        Checks if the current aggregate root exists in the repository.
+        Check whether an Aggregate Root exists in the repository.
 
-        :return: True if it exists, False otherwise.
+        :param _id: The unique identifier of the Aggregate Root to check.
+        :return: True if the Aggregate Root exists, False otherwise.
         """
         pass
 
     @abstractmethod
     def find_sync(self, _id: str) -> Optional[T]:
         """
-        Finds an aggregate root by its ID.
+        Retrieve an Aggregate Root by its unique identifier.
 
-        :param _id: The unique identifier of the aggregate root.
-        :return: The aggregate root if found, otherwise None.
+        :param _id: The unique identifier of the Aggregate Root.
+        :return: The Aggregate Root instance if found, otherwise None.
         """
         pass
 
     @abstractmethod
-    def find_all_sync(self) -> list[T]:
+    def find_all_sync(self) -> List[T]:
         """
-        Retrieves all aggregate roots from the repository.
+        Retrieve all Aggregate Roots stored in the repository.
 
-        :return: A list of all aggregate roots.
+        :return: A list containing all Aggregate Roots.
         """
         pass
 
     @abstractmethod
-    def find_ids_sync(self) -> list[str]:
+    def find_ids_sync(self) -> List[str]:
         """
-        Retrieves the IDs of all aggregate roots in the repository.
+        Retrieve the unique identifiers of all Aggregate Roots in the repository.
 
-        :return: A list of aggregate root IDs.
+        :return: A list of Aggregate Root IDs.
         """
         pass
 
     @abstractmethod
     def save_sync(self, aggregate_root: T) -> None:
         """
-        Saves the given aggregate root to the repository.
-        If it already exists, it will be updated.
+        Persist an Aggregate Root to the repository.
+        If the Aggregate Root already exists, it should be updated.
 
-        :param aggregate_root: The aggregate root to save.
+        :param aggregate_root: The Aggregate Root instance to persist.
         :return: None
         """
         pass
