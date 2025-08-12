@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Type
 
-T = TypeVar("T", bound="AggregateRootBase")
+T = TypeVar("T", bound="AggregateRoot")
 
 
 class AggregateRoot(ABC):
