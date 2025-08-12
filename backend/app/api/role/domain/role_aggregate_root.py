@@ -2,7 +2,7 @@ from typing import TypeVar, Type
 
 from sqlmodel import Field, SQLModel
 
-from app.api.shared.aggregate.aggregate_root import AggregateRoot
+from app.api.shared.aggregate.domain.aggregate_root import AggregateRoot
 
 TR = TypeVar("TR", bound="RoleAggregateRoot")
 

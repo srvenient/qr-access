@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.api.role.domain.role_aggregate_root import RoleAggregateRoot
-from app.api.shared.aggregate.aggregate_root import AggregateRoot
+from app.api.shared.aggregate.domain.aggregate_root import AggregateRoot
 
 TU = TypeVar("TU", bound="User")
 
