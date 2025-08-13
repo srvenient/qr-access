@@ -1,5 +1,7 @@
-from sqlmodel import create_engine, Session, select
+from sqlmodel import create_engine, Session, SQLModel
 
+from app.api.role.domain.role_models import Role
+from app.api.user.domain.user_models import User
 from app.core.config import settings
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
@@ -14,6 +16,4 @@ def init_db(session: Session) -> None:
     # This works because the models are already imported and registered from app.models
     # SQLModel.metadata.create_all(engine)
     # Or you can create specific tables
-    # SQLModel.metadata.create_all(engine, tables=[User.__table__])
-    with session.begin():
-        pass
+    SQLModel.metadata.create_all(engine, tables=[Role.__table__, User.__table__])
