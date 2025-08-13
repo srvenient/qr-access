@@ -67,7 +67,7 @@ class AggregateRootRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def find_all_sync(self) -> List[T]:
+    def find_all_sync(self) -> list[T]:
         """
         Retrieve all Aggregate Roots stored in the repository.
 
@@ -76,7 +76,7 @@ class AggregateRootRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def find_ids_sync(self) -> List[str]:
+    def find_ids_sync(self) -> list[str]:
         """
         Retrieve the unique identifiers of all Aggregate Roots in the repository.
 
