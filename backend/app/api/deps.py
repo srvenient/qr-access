@@ -3,12 +3,10 @@ from typing import Generator, Annotated
 from fastapi import Depends
 from sqlmodel import Session
 
-from app.api.role.domain.role_aggregate_root import RoleAggregateRoot, Role
-from app.api.shared.aggregate.domain.repository.async_aggregate_root_repository import AsyncAggregateRootRepository
-from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import (
-    SQLAlchemyAggregateRootRepository,
-)
-from app.api.user.domain.user_aggregate_root import UserAggregateRoot, User
+from app.api.role.domain.role_models import Role
+from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
+    SQLAlchemyAggregateRootRepository
+from app.api.user.domain.user_models import User
 from app.core.db import engine
 
 
@@ -20,31 +18,21 @@ def get_db() -> Generator[Session, None, None]:
 SessionDep = Annotated[Session, Depends(get_db)]
 
 
-def get_role_aggregate_root_repository(
-        session: SessionDep,
-) -> AsyncAggregateRootRepository[RoleAggregateRoot]:
-    """
-    Provides an AsyncAggregateRootRepository for RoleAggregateRoot.
-    """
-    return SQLAlchemyAggregateRootRepository(session=session, orm_model=Role, aggregate_class=RoleAggregateRoot)
+def get_role_aggregate_repository(session: SessionDep) -> SQLAlchemyAggregateRootRepository[Role]:
+    return SQLAlchemyAggregateRootRepository[Role](
+        session=session,
+        aggregate_root=Role
+    )
 
 
-RoleAggregateRootRepositoryDep = Annotated[
-    AsyncAggregateRootRepository[RoleAggregateRoot],
-    Depends(get_role_aggregate_root_repository),
-]
+RoleAggregateRepositoryDep = Depends(get_role_aggregate_repository)
 
 
-def get_user_aggregate_root_repository(
-        session: SessionDep,
-) -> AsyncAggregateRootRepository[UserAggregateRoot]:
-    """
-    Provides an AsyncAggregateRootRepository for UserAggregateRoot.
-    """
-    return SQLAlchemyAggregateRootRepository(session=session, orm_model=User, aggregate_class=UserAggregateRoot)
+def get_user_aggregate_repository(session: SessionDep) -> SQLAlchemyAggregateRootRepository[User]:
+    return SQLAlchemyAggregateRootRepository[User](
+        session=session,
+        aggregate_root=User
+    )
 
 
-UserAggregateRootRepositoryDep = Annotated[
-    AsyncAggregateRootRepository[UserAggregateRoot],
-    Depends(get_user_aggregate_root_repository),
-]
+UserAggregateRepositoryDep = Depends(get_user_aggregate_repository)
