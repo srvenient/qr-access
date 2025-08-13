@@ -2,10 +2,9 @@ import asyncio
 from abc import ABC
 from typing import Optional, TypeVar
 
-from app.api.shared.aggregate.domain.aggregate_root import AggregateRoot
 from app.api.shared.aggregate.domain.repository.aggregate_root_repository import AggregateRootRepository
 
-T = TypeVar("T", bound=AggregateRoot)
+T = TypeVar("T")
 
 
 class AsyncAggregateRootRepository(AggregateRootRepository[T], ABC):

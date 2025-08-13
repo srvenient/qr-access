@@ -1,11 +1,10 @@
 from typing import Optional, TypeVar
-from app.api.shared.aggregate.domain.aggregate_root import AggregateRoot
 from app.api.shared.aggregate.domain.repository.aggregate_root_repository import AggregateRootRepository
 
-T = TypeVar("T", bound=AggregateRoot)
+T = TypeVar("T")
 
 
-class DictAggregateRootRepository(AggregateRootRepository[T]):
+class InMemoryAggregateRootRepository(AggregateRootRepository[T]):
     """
     In-memory implementation of an Aggregate Root Repository.
 

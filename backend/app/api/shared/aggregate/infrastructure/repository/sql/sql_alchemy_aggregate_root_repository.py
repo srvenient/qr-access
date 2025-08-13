@@ -28,18 +28,9 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
          - For high concurrency, prefer the async methods.
      """
 
-    def __init__(self, session: Session, orm_model: Type[O], aggregate_class: Type[T]):
+    def __init__(self, session: Session, aggregate_root: Type[T]):
         self.session = session
-        self.orm_model = orm_model
-        self.aggregate_class = aggregate_class
-
-    def _to_aggregate(self, orm_obj: O) -> T:
-        """Map ORM → AggregateRoot"""
-        return self.aggregate_class(**orm_obj.__dict__)
-
-    def _to_orm(self, aggregate: T) -> O:
-        """Map AggregateRoot → ORM"""
-        return self.orm_model(**aggregate.__dict__)
+        self.aggregate_root = aggregate_root
 
     def delete_sync(self, _id: str) -> bool:
         """
@@ -54,9 +45,9 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        orm_obj = self.session.get(self.orm_model, _id)
-        if orm_obj:
-            self.session.delete(orm_obj)
+        obj = self.session.get(self.aggregate_root, _id)
+        if obj:
+            self.session.delete(obj)
             self.session.commit()
             return True
         return False
@@ -68,7 +59,7 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method and may be expensive for large datasets.
         """
-        self.session.query(self.orm_model).delete()
+        self.session.query(self.aggregate_root).delete()
         self.session.commit()
 
     def delete_and_retrieve_sync(self, _id: str) -> Optional[T]:
@@ -84,11 +75,11 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        orm_obj = self.session.get(self.orm_model, _id)
-        if orm_obj:
-            self.session.delete(orm_obj)
+        obj = self.session.get(self.aggregate_root, _id)
+        if obj:
+            self.session.delete(obj)
             self.session.commit()
-            return self._to_aggregate(orm_obj)
+            return obj
         return None
 
     def exists_sync(self, _id: str) -> bool:
@@ -104,7 +95,7 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        return self.session.query(self.orm_model).filter_by(id=_id).count() > 0
+        return self.session.query(self.aggregate_root).filter_by(id=_id).count() > 0
 
     def find_sync(self, _id: str) -> Optional[T]:
         """
@@ -119,8 +110,7 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        orm_obj = self.session.get(self.orm_model, _id)
-        return self._to_aggregate(orm_obj) if orm_obj else None
+        return self.session.get(self.aggregate_root, _id)
 
     def find_all_sync(self) -> List[T]:
         """
@@ -132,8 +122,7 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        orm_objs = self.session.query(self.orm_model).all()
-        return [self._to_aggregate(o) for o in orm_objs]
+        return self.session.query(self.aggregate_root).all()
 
     def find_ids_sync(self) -> List[str]:
         """
@@ -145,7 +134,7 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        return [o.id for o in self.session.query(self.orm_model).all()]
+        return [self.obj.id for self.obj in self.session.query(self.aggregate_root).all()]
 
     def save_sync(self, aggregate_root: T) -> None:
         """
@@ -157,6 +146,5 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        orm_obj = self._to_orm(aggregate_root)
-        self.session.add(orm_obj)
+        self.session.add(aggregate_root)
         self.session.commit()

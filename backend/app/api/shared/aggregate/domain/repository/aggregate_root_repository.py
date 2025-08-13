@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Optional, List, Generic
 
-from app.api.shared.aggregate.domain.aggregate_root import AggregateRoot
-
-T = TypeVar("T", bound=AggregateRoot)
+T = TypeVar("T")
 
 
 class AggregateRootRepository(ABC, Generic[T]):
