@@ -22,7 +22,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    PROJECT_NAME: str = "qr-access"
+    PROJECT_NAME: str = "qr-access-backend"
     PROJECT_VERSION: str = "0.0.1"
     PROJECT_DESCRIPTION: str = "qr-access"
 
