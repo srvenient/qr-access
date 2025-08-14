@@ -5,7 +5,6 @@ from sqlmodel import Session
 from app.api.shared.aggregate.domain.repository.async_aggregate_root_repository import AsyncAggregateRootRepository
 
 T = TypeVar("T")
-O = TypeVar("O")
 
 
 class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
