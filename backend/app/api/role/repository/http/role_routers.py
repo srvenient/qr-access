@@ -1,15 +1,9 @@
 from fastapi import APIRouter, HTTPException
 
 from app.api.deps import RoleAggregateRepositoryDep
-from app.api.role.application import role_service
 from app.api.role.domain.role_models import Role, RoleCreate
 
 router = APIRouter(prefix="/roles", tags=["Role"])
-
-
-@router.get("/health", summary="Check role service health")
-async def health_check():
-    return {"status": "Role service is healthy"}
 
 
 @router.get("/{role_id}", summary="Get role by ID")
