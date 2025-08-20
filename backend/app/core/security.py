@@ -2,11 +2,18 @@ from datetime import timedelta, datetime, timezone
 
 import jwt
 import pyotp
+from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
 from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=settings.OAUTH2_TOKEN_URL,
+    scopes=settings.OAUTH2_SCOPES,
+    auto_error=True,
+)
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -24,7 +31,8 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_password_hash(password):
+def get_password_hash(password) -> str:
+    """Hash a password using bcrypt."""
     return pwd_context.hash(password)
 
 
@@ -37,5 +45,4 @@ def get_totp_uri(secret: str, username: str, issuer_name="qr-access") -> str:
 
 
 def verify_2fa_token(secret: str, token: str) -> bool:
-    totp = pyotp.TOTP(secret)
-    return totp.verify(token)
+    return pyotp.TOTP(secret).verify(token, valid_window=1)  # Allow a 30-second window for token validity
