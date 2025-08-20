@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from uuid import UUID
 
@@ -8,12 +10,23 @@ if TYPE_CHECKING:
     from app.api.role.domain.role_models import Role
 
 
+class DocumentType(str, Enum):
+    ID_CARD = "ID_Card"  # CC
+    FOREIGN_ID = "Foreign_ID"  # CE
+    PASSPORT = "Passport"  # PASAPORTE
+    CITIZEN_CARD = "Citizen_Card"  # TI
+    TAX_ID = "Tax_ID"  # NIT
+
+
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
-    first_name: str | None = Field(default=None, nullable=True)
-    last_name: str | None = Field(default=None, nullable=True)
+
+    document_type: DocumentType | None = Field(default=None, nullable=True)
+    document_number: str | None = Field(default=None, max_length=50, nullable=True)
+    full_name: str | None = Field(default=None, max_length=255)
+    phone_number: str | None = Field(default=None, max_length=20, nullable=True)
+
     is_active: bool = Field(default=True, nullable=False)
-    is_superuser: bool = Field(default=False, nullable=False)
 
 
 class UserCreate(UserBase):
@@ -26,14 +39,15 @@ class UserRegister(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
 
 
-class UserUpdate(UserBase):
-    email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
+class UserUpdate(SQLModel):
+    email: EmailStr | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=40)
 
 
 class UserUpdateMe(SQLModel):
-    full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=255)
+    full_name: str | None = Field(default=None, max_length=255)
+    phone_number: str | None = Field(default=None, max_length=20, nullable=True)
 
 
 class UpdatePassword(SQLModel):
@@ -50,19 +64,24 @@ class User(UserBase, table=True):
     """
     __tablename__ = "users"
 
-    id: str = Field(nullable=False, primary_key=True)
-    hashed_password: str
+    id: UUID = Field(nullable=False, primary_key=True)
 
-    # Foreign key to the roles table
+    password_hash: str = Field(max_length=128, nullable=False)
+
     role_id: Optional[UUID] = Field(default=None, foreign_key="roles.id")
-
-    # Relationship to the RoleAggregateRoot
     role: Optional["Role"] = Relationship()
+
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+    # override updated_at automatically
+    def touch(self):
+        self.updated_at = datetime.now(timezone.utc)
 
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
-    id: str
+    pass
 
 
 class UsersPublic(SQLModel):
