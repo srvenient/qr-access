@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Optional, Generic
 
+# Type variable for the Aggregate Root type
+# This allows the repository to be generic over different Aggregate Root types.
 T = TypeVar("T")
 
 
@@ -13,16 +15,14 @@ class AggregateRootRepository(ABC, Generic[T]):
 
     Concrete implementations should handle the persistence logic (e.g., SQL, NoSQL, in-memory).
 
-    :param T: The type of Aggregate Root this repository manages.
     :since: 0.0.1
     """
 
     @abstractmethod
-    def delete_sync(self, _id: str) -> bool:
+    def delete_sync(self, **filters) -> bool:
         """
         Remove an Aggregate Root from the repository by its unique identifier.
 
-        :param _id: The unique identifier of the Aggregate Root to delete.
         :return: True if the Aggregate Root was found and deleted, False otherwise.
         """
         pass
@@ -37,31 +37,28 @@ class AggregateRootRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def delete_and_retrieve_sync(self, _id: str) -> Optional[T]:
+    def delete_and_retrieve_sync(self, **filters) -> Optional[T]:
         """
         Remove an Aggregate Root from the repository and return the deleted instance.
 
-        :param _id: The unique identifier of the Aggregate Root to delete.
         :return: The deleted Aggregate Root instance, or None if it was not found.
         """
         pass
 
     @abstractmethod
-    def exists_sync(self, _id: str) -> bool:
+    def exists_sync(self, **filters) -> bool:
         """
         Check whether an Aggregate Root exists in the repository.
 
-        :param _id: The unique identifier of the Aggregate Root to check.
         :return: True if the Aggregate Root exists, False otherwise.
         """
         pass
 
     @abstractmethod
-    def find_sync(self, _id: str) -> Optional[T]:
+    def find_sync(self, **filters) -> Optional[T]:
         """
         Retrieve an Aggregate Root by its unique identifier.
 
-        :param _id: The unique identifier of the Aggregate Root.
         :return: The Aggregate Root instance if found, otherwise None.
         """
         pass

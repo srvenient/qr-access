@@ -22,14 +22,14 @@ class AsyncAggregateRootRepository(AggregateRootRepository[T], ABC):
     :since: 0.0.1
     """
 
-    async def delete_async(self, _id: str) -> bool:
+    async def delete_async(self, **filters) -> bool:
         """
         Asynchronously delete an aggregate root by its unique identifier.
 
         :param _id: The unique identifier of the aggregate root to delete.
         :return: True if the aggregate root was deleted successfully, False otherwise.
         """
-        return await asyncio.to_thread(self.delete_sync, _id)
+        return await asyncio.to_thread(self.delete_sync, **filters)
 
     async def delete_all_async(self) -> None:
         """
@@ -37,32 +37,29 @@ class AsyncAggregateRootRepository(AggregateRootRepository[T], ABC):
         """
         await asyncio.to_thread(self.delete_all_sync)
 
-    async def delete_and_retrieve_async(self, _id: str) -> Optional[T]:
+    async def delete_and_retrieve_async(self, **filters) -> Optional[T]:
         """
         Asynchronously delete an aggregate root and return the deleted instance.
 
-        :param _id: The unique identifier of the aggregate root to delete.
         :return: The deleted aggregate root if found, None otherwise.
         """
-        return await asyncio.to_thread(self.delete_and_retrieve_sync, _id)
+        return await asyncio.to_thread(self.delete_and_retrieve_sync, **filters)
 
-    async def exists_async(self, _id: str) -> bool:
+    async def exists_async(self, **filters) -> bool:
         """
         Asynchronously check if an aggregate root exists in the repository.
 
-        :param _id: The unique identifier of the aggregate root to check.
         :return: True if the aggregate root exists, False otherwise.
         """
-        return await asyncio.to_thread(self.exists_sync, _id)
+        return await asyncio.to_thread(self.exists_sync, **filters)
 
-    async def find_async(self, _id: str) -> Optional[T]:
+    async def find_async(self, **filters) -> Optional[T]:
         """
         Asynchronously retrieve an aggregate root by its unique identifier.
 
-        :param _id: The unique identifier of the aggregate root to find.
         :return: The aggregate root if found, None otherwise.
         """
-        return await asyncio.to_thread(self.find_sync, _id)
+        return await asyncio.to_thread(self.find_sync, **filters)
 
     async def find_all_async(self) -> list[T]:
         """
