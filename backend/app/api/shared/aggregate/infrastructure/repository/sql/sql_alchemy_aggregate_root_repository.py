@@ -1,6 +1,6 @@
 from typing import TypeVar, Optional, List, Type
 
-from sqlmodel import Session
+from sqlmodel import Session, select, delete
 
 from app.api.shared.aggregate.domain.repository.async_aggregate_root_repository import AsyncAggregateRootRepository
 
@@ -31,20 +31,22 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         self.session = session
         self.aggregate_root = aggregate_root
 
-    def delete_sync(self, _id: str) -> bool:
+    def delete_sync(self, **filters) -> bool:
         """
-        Delete an aggregate root by its ID.
+        Delete an aggregate root matching the provided filters.
+
+        Example:
+            repo.delete_sync(id="123")
+            repo.delete_sync(email="test@example.com")
 
         Args:
-            _id (str): Unique identifier of the aggregate root.
+            **filters: Keyword arguments matching model fields.
 
         Returns:
-            bool: True if the deletion was successful, False otherwise.
-
-        Note:
-            This is a blocking method.
+            bool: True if a record was deleted, False otherwise.
         """
-        obj = self.session.get(self.aggregate_root, _id)
+        statement = select(self.aggregate_root).filter_by(**filters)
+        obj = self.session.exec(statement).first()
         if obj:
             self.session.delete(obj)
             self.session.commit()
@@ -58,58 +60,53 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method and may be expensive for large datasets.
         """
-        self.session.query(self.aggregate_root).delete()
+        statement = delete(self.aggregate_root)
+        self.session.execute(statement)
         self.session.commit()
 
-    def delete_and_retrieve_sync(self, _id: str) -> Optional[T]:
+    def delete_and_retrieve_sync(self, **filters) -> Optional[T]:
         """
-        Delete an aggregate root and return the deleted instance.
+        Delete an aggregate root and return it.
+
+        Example:
+            repo.delete_and_retrieve_sync(id="123")
+            repo.delete_and_retrieve_sync(email="test@example.com")
 
         Args:
-            _id (str): Unique identifier of the aggregate root.
+            **filters: Keyword arguments matching model fields.
 
         Returns:
             Optional[T]: The deleted aggregate root if found, otherwise None.
-
-        Note:
-            This is a blocking method.
         """
-        obj = self.session.get(self.aggregate_root, _id)
+        statement = select(self.aggregate_root).filter_by(**filters)
+        obj = self.session.exec(statement).first()
         if obj:
             self.session.delete(obj)
             self.session.commit()
             return obj
         return None
 
-    def exists_sync(self, _id: str) -> bool:
+    def exists_sync(self, **filters) -> bool:
         """
-        Check if an aggregate root exists.
+        Check if an aggregate root exists with the given filters.
 
-        Args:
-            _id (str): Unique identifier of the aggregate root.
-
-        Returns:
-            bool: True if the aggregate root exists, False otherwise.
-
-        Note:
-            This is a blocking method.
+        Example:
+            repo.exists_sync(id="123")
+            repo.exists_sync(email="test@example.com")
         """
-        return self.session.query(self.aggregate_root).filter_by(id=_id).count() > 0
+        statement = select(self.aggregate_root).filter_by(**filters)
+        return self.session.exec(statement).first() is not None
 
-    def find_sync(self, _id: str) -> Optional[T]:
+    def find_sync(self, **filters) -> Optional[T]:
         """
-        Retrieve an aggregate root by its ID.
+        Retrieve an aggregate root matching the filters.
 
-        Args:
-            _id (str): Unique identifier of the aggregate root.
-
-        Returns:
-            Optional[T]: The aggregate root if found, otherwise None.
-
-        Note:
-            This is a blocking method.
+        Example:
+            repo.find_sync(id="123")
+            repo.find_sync(email="test@example.com")
         """
-        return self.session.get(self.aggregate_root, _id)
+        statement = select(self.aggregate_root).filter_by(**filters)
+        return self.session.exec(statement).first()
 
     def find_all_sync(self) -> List[T]:
         """
@@ -121,7 +118,8 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        return self.session.query(self.aggregate_root).all()
+        statement = select(self.aggregate_root)
+        return list(self.session.exec(statement))
 
     def find_ids_sync(self) -> List[str]:
         """
@@ -133,7 +131,8 @@ class SQLAlchemyAggregateRootRepository(AsyncAggregateRootRepository[T]):
         Note:
             This is a blocking method.
         """
-        return [self.obj.id for self.obj in self.session.query(self.aggregate_root).all()]
+        statement = select(self.aggregate_root.id)
+        return [row[0] for row in self.session.exec(statement).all()]
 
     def save_sync(self, aggregate_root: T) -> None:
         """
