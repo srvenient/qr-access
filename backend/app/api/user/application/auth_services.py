@@ -47,8 +47,10 @@ async def authenticate_user(
     """
     user_db = await repository.find_async(email=form_data.username)
 
-    if not user_db:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    # Avoid variable time (basic protection against user enumeration)
+    if not user_db or not user_db.password_hash:
+        security.verify_password(form_data.password, security.DUMMY_HASHED_PASSWORD)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if not user_db.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
@@ -57,16 +59,22 @@ async def authenticate_user(
     if user_db.lock_until and user_db.lock_until > now_:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is locked until {}".format(user_db.lock_until)
+            detail=f"User is locked until {user_db.lock_until.isoformat()}",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not security.verify_password(form_data.password, user_db.hashed_password):
+    if not security.verify_password(form_data.password, user_db.password_hash):
         user_db.failed_attempts += 1
         if user_db.failed_attempts >= settings.FAILED_LOGIN_ATTEMPTS:
             user_db.lock_until = now_ + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
         await repository.save_async(user_db)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
+    # Reset failed attempts on successful login
     user_db.failed_attempts = 0
     user_db.lock_until = None
 
