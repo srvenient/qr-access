@@ -93,7 +93,7 @@ async def authenticate_user(
         await repository.save_async(user_db)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    user_db.reset_login_attempts()
+    user_db.reset_failed_attempts()
 
     await repository.save_async(user_db)
 
