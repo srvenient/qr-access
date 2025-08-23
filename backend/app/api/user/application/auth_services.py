@@ -1,9 +1,10 @@
 from datetime import timezone, datetime, timedelta
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from starlette import status
+from jose import JWTError, ExpiredSignatureError
+from starlette.responses import JSONResponse
 
 from app.api.deps import UserAggregateRepositoryDep
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
@@ -12,6 +13,29 @@ from app.api.user.domain.auth_models import Token
 from app.api.user.domain.user_models import User, UserCreate
 from app.core import security
 from app.core.config import settings
+
+
+def generate_tokens(user_id: str) -> tuple[Token, str, timedelta]:
+    access_ttl = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_ttl = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    access_token, access_jti = security.sign_jwt(
+        user_id, security.ACCESS_AUD, access_ttl
+    )
+    refresh_token_value, refresh_jti = security.sign_jwt(
+        user_id, security.REFRESH_AUD, refresh_ttl
+    )
+
+    return (
+        Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=access_ttl.total_seconds(),
+            jti=access_jti,
+        ),
+        refresh_token_value,
+        refresh_ttl,
+    )
 
 
 async def register_user(
@@ -35,10 +59,11 @@ async def register_user(
     )
 
     await repository.save_async(user)
-    raise HTTPException(status_code=status.HTTP_200_OK, detail="User registered successfully")
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "User registered successfully"})
 
 
 async def authenticate_user(
+        response: Response,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         repository: SQLAlchemyAggregateRootRepository[User] = UserAggregateRepositoryDep
 ) -> Token:
@@ -50,13 +75,13 @@ async def authenticate_user(
     # Avoid variable time (basic protection against user enumeration)
     if not user_db or not user_db.password_hash:
         security.verify_password(form_data.password, security.DUMMY_HASHED_PASSWORD)
+
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if not user_db.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
 
-    now_ = datetime.now(timezone.utc)
-    if user_db.lock_until and user_db.lock_until > now_:
+    if user_db.is_locked():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"User is locked until {user_db.lock_until.isoformat()}",
@@ -64,33 +89,60 @@ async def authenticate_user(
         )
 
     if not security.verify_password(form_data.password, user_db.password_hash):
-        user_db.failed_attempts += 1
-        if user_db.failed_attempts >= settings.FAILED_LOGIN_ATTEMPTS:
-            user_db.lock_until = now_ + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+        user_db.register_failed_attempt(settings.FAILED_LOGIN_ATTEMPTS, settings.LOCKOUT_DURATION_MINUTES)
         await repository.save_async(user_db)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Reset failed attempts on successful login
-    user_db.failed_attempts = 0
-    user_db.lock_until = None
+    user_db.reset_login_attempts()
 
     await repository.save_async(user_db)
 
     # Generate access and refresh tokens
-    access_ttl = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token, access_jti = security.sign_jwt(
-        str(user_db.id),
-        security.ACCESS_AUD,
-        access_ttl
+    token, refresh_token_value, refresh_ttl = generate_tokens(str(user_db.id))
+
+    # Set refresh token in HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token_value,
+        httponly=True,
+        max_age=int(refresh_ttl.total_seconds()),
+        expires=int(refresh_ttl.total_seconds()),
+        samesite="strict" if settings.ENV == "production" else "lax",
+        secure=settings.COOKIE_SECURE  # Set to True in production with HTTPS
     )
 
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=access_ttl.total_seconds(),
-        jti=access_jti
+    return token
+
+
+async def refresh_token(request: Request, response: Response) -> Token:
+    stored_refresh_token = request.cookies.get("refresh_token")
+    if not stored_refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+
+    try:
+        payload: dict = security.jwt.decode(
+            stored_refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            audience=security.REFRESH_AUD,
+        )
+        user_id: str | None = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
+
+    token, new_refresh_token, refresh_ttl = generate_tokens(user_id)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=int(refresh_ttl.total_seconds())
     )
+
+    return token
