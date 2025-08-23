@@ -4,7 +4,7 @@ import { Form } from '@/app/components/form/Form';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
 type FormValues = {
-  identifier: string;
+  username: string;
   password: string;
 };
 
@@ -12,7 +12,7 @@ export default function SignInForm() {
   const methods = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
-      identifier: '',
+      username: '',
       password: '',
     },
   });
