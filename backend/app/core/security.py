@@ -2,8 +2,8 @@ import uuid
 from datetime import timedelta, datetime, timezone
 from typing import Optional
 
-import jwt
 import pyotp
+from jose import jwt
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
@@ -13,6 +13,8 @@ ACCESS_AUD = "access"
 REFRESH_AUD = "refresh"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+DUMMY_HASHED_PASSWORD = pwd_context.hash("dummy_password")
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=settings.OAUTH2_TOKEN_URL,
