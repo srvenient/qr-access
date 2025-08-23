@@ -84,5 +84,30 @@ services:
       prestart:
         condition: service_completed_successfully
 
+  frontend:
+    container_name: '${PROJECT_NAME?Variable not set}-frontend'
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - '3000:3000'
+    develop:
+      watch:
+        - path: ./frontend
+          target: /app
+          action: sync
+          ignore:
+            - .next
+            - node_modules
+            - .git
+            - .DS_Store
+            - .env
+        - path: ./package.json
+          action: rebuild
+    depends_on:
+      backend:
+        condition: service_healthy
+        restart: true
+
 volumes:
   app-db-data:
