@@ -1,15 +1,17 @@
+from datetime import timezone, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException
-from fastapi.openapi.models import Response
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status
 
 from app.api.deps import UserAggregateRepositoryDep
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
+from app.api.user.domain.auth_models import Token
 from app.api.user.domain.user_models import User, UserCreate
 from app.core import security
+from app.core.config import settings
 
 
 async def register_user(
@@ -24,25 +26,63 @@ async def register_user(
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
 
-    # Hash the password before saving
-    user_create.hashed_password = security.get_password_hash(user_create.password)
+    password_hash = security.get_password_hash(user_create.password)
 
     # Save the new user
-    user = User(**user_create.model_dump())
+    user = User.model_validate(
+        user_create,
+        update={"password_hash": password_hash}
+    )
 
-    try:
-        await repository.find_async(email=user.email)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
-    except Exception as e:
-        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    await repository.save_async(user)
+    raise HTTPException(status_code=status.HTTP_200_OK, detail="User registered successfully")
 
 
 async def authenticate_user(
-        response: Response,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         repository: SQLAlchemyAggregateRootRepository[User] = UserAggregateRepositoryDep
-):
+) -> Token:
+    """
+    Authenticate a user and return JWT tokens.
+    """
     user_db = await repository.find_async(email=form_data.username)
-    if not user_db or not security.verify_password(form_data.password, user_db.hashed_password):
-        return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
-    pass
+
+    if not user_db:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if not user_db.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
+
+    now_ = datetime.now(timezone.utc)
+    if user_db.lock_until and user_db.lock_until > now_:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is locked until {}".format(user_db.lock_until)
+        )
+
+    if not security.verify_password(form_data.password, user_db.hashed_password):
+        user_db.failed_attempts += 1
+        if user_db.failed_attempts >= settings.FAILED_LOGIN_ATTEMPTS:
+            user_db.lock_until = now_ + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+        await repository.save_async(user_db)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password")
+
+    user_db.failed_attempts = 0
+    user_db.lock_until = None
+
+    await repository.save_async(user_db)
+
+    # Generate access and refresh tokens
+    access_ttl = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token, access_jti = security.sign_jwt(
+        str(user_db.id),
+        security.ACCESS_AUD,
+        access_ttl
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=access_ttl.total_seconds(),
+        jti=access_jti
+    )

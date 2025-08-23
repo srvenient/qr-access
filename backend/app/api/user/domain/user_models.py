@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from pydantic import EmailStr
+from pydantic import EmailStr, BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -64,12 +64,15 @@ class User(UserBase, table=True):
     """
     __tablename__ = "users"
 
-    id: UUID = Field(nullable=False, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, nullable=False, primary_key=True)
 
     password_hash: str = Field(max_length=128, nullable=False)
 
     role_id: Optional[UUID] = Field(default=None, foreign_key="roles.id")
     role: Optional["Role"] = Relationship()
+
+    failed_attempts: int = Field(default=0)
+    lock_until: Optional[datetime] = Field(default=None)
 
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
