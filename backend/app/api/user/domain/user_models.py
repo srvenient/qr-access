@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -76,6 +76,20 @@ class User(UserBase, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+    def register_failed_attempt(self, lockout_threshold: int, lockout_duration_minutes: int) -> None:
+        self.failed_attempts += 1
+        if self.failed_attempts >= lockout_threshold:
+            self.lock_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_duration_minutes)
+
+    def reset_failed_attempts(self) -> None:
+        self.failed_attempts = 0
+        self.lock_until = None
+
+    def is_locked(self) -> bool:
+        if self.lock_until is None:
+            return False
+        return self.lock_until > datetime.now(timezone.utc)
 
     # override updated_at automatically
     def touch(self):
