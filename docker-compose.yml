@@ -104,10 +104,6 @@ services:
             - .env
         - path: ./package.json
           action: rebuild
-    depends_on:
-      backend:
-        condition: service_healthy
-        restart: true
 
 volumes:
   app-db-data:
