@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     API_V1_STR: str = "/api/v1"
 
+    ENV: str = "development"  # one of "development", "production", "testing"
+    COOKIE_SECURE: bool = False  # True in production
+
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15 # minutes
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # days
