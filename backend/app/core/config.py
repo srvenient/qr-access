@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     FAILED_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_DURATION_MINUTES: int = 15  # minutes
 
-    OAUTH2_TOKEN_URL: str = "/auth/token"
+    OAUTH2_TOKEN_URL: str = API_V1_STR + "/auth/login"
     OAUTH2_SCOPES: dict = {
         "read": "Read access",
         "write": "Write access",
