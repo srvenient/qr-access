@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import Input from '@/app/components/form/input/Input';
 import {useFormContext} from 'react-hook-form';
 import {EyeIcon, EyeSlashIcon} from '@heroicons/react/24/outline';
@@ -12,9 +12,20 @@ export default function PasswordInput({placeholder, label = "Password"}: Passwor
   const {watch} = useFormContext();
   const [showPassword, setShowPassword] = useState(false);
   const password = watch('password');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (wrapperRef.current && !wrapperRef.current.contains(e.relatedTarget)) {
+      setShowPassword(false);
+    }
+  };
 
   return (
-    <div className="relative">
+    <div
+      ref={wrapperRef}
+      className="relative"
+      onBlur={handleBlur}
+    >
       <Input
         name="password"
         type={showPassword ? 'text' : 'password'}
