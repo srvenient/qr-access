@@ -50,14 +50,19 @@ export default function SignInForm() {
             },
         }}
         />
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <PasswordInput label="Password" placeholder="Your password..."/>
-          <a
-            href="#"
-            className="self-end text-[13px] font-special font-semibold hover:underline"
-          >
-            Forgot Password?
-          </a>
+          <button type="button" className="self-end relative group cursor-pointer">
+            <span
+              className="relative text-sm bg-clip-text font-special font-semibold"
+            >
+              Forgot Password?
+              <span
+                className="absolute left-0 -bottom-0.5 h-[2px] w-0 bg-white
+                          transition-all duration-500 group-hover:w-full"
+              />
+            </span>
+          </button>
         </div>
         <button
           type="submit"
@@ -76,18 +81,10 @@ export default function SignInForm() {
         </button>
         <div className="flex items-center justify-center gap-1">
           <p className="text-sm text-gray-400">
-            Don't have an account?
+            By continuing, you agree to our
           </p>
-          <button type="button" className="relative group cursor-pointer">
-            <span
-              className="relative text-sm bg-clip-text font-special font-semibold"
-            >
-              Sign up
-              <span
-                className="absolute left-0 -bottom-0.5 h-[2px] w-0 bg-white
-                          transition-all duration-500 group-hover:w-full"
-              />
-            </span>
+          <button type="button" className="text-sm text-blue-400 underline hover:text-white transition-colors duration-300 cursor-pointer">
+            terms of service.
           </button>
         </div>
       </Form>
