@@ -66,7 +66,7 @@ export default function SignInForm() {
         </div>
         <button
           type="submit"
-          disabled={!isValid}
+          disabled={!isValid || isSubmitting}
           className={`
             w-full py-2.5 px-4 mt-2
             bg-theme-dodger-blue enabled:hover:bg-blue-600 
