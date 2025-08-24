@@ -54,7 +54,7 @@ export default function SignInForm() {
           <PasswordInput label="Password" placeholder="Your password..."/>
           <button type="button" className="self-end relative group cursor-pointer">
             <span
-              className="relative text-sm bg-clip-text font-special font-semibold"
+              className="relative text-[13.5px] bg-clip-text font-special font-semibold"
             >
               Forgot Password?
               <span
@@ -69,7 +69,7 @@ export default function SignInForm() {
           disabled={!isValid}
           className={`
             w-full py-2.5 px-4 mt-2
-            bg-theme-dodger-blue hover:bg-blue-600 disabled:bg-blue-400
+            bg-theme-dodger-blue enabled:hover:bg-blue-600 
             rounded-xl
             text-white text-[12px] font-special font-semibold
             transition-colors duration-300
