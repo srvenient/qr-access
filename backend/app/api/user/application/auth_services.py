@@ -17,7 +17,7 @@ from app.core.config import settings
 
 def generate_tokens(user_id: str) -> tuple[Token, str, timedelta]:
     access_ttl = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_ttl = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_ttl = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
 
     access_token, access_jti = security.sign_jwt(
         user_id, security.ACCESS_AUD, access_ttl
@@ -140,9 +140,10 @@ async def refresh_token(request: Request, response: Response) -> Token:
         key="refresh_token",
         value=new_refresh_token,
         httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=int(refresh_ttl.total_seconds())
+        max_age=int(refresh_ttl.total_seconds()),
+        expires=int(refresh_ttl.total_seconds()),
+        samesite="strict" if settings.ENV == "production" else "lax",
+        secure=settings.COOKIE_SECURE  # Set to True in production with HTTPS
     )
 
     return token
