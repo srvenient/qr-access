@@ -2,7 +2,8 @@ import type { AxiosInstance } from 'axios';
 import Axios from 'axios';
 import http from 'http';
 import * as https from 'node:https';
-import {ApiError} from "@/common/errors/api-error";
+import { ApiError } from '@/common/errors/api-error';
+import { refreshTokenInterceptor } from '@/common/http-client/interceptors/refresh-token.interceptor';
 
 export type HttpClientConfig = {
   baseURL: string;
@@ -30,5 +31,10 @@ export abstract class BaseHttpClient {
       httpAgent,
       httpsAgent,
     });
+
+    this.instance.interceptors.response.use(
+      (response) => response,
+      refreshTokenInterceptor(this.instance),
+    );
   }
 }
