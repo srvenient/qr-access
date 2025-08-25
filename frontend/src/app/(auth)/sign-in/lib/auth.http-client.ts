@@ -2,6 +2,7 @@ import {BaseHttpClient} from "@/common/http-client/http-client";
 import config from "@/config/config";
 import {ApiError} from "@/common/errors/api-error";
 import axios from "axios";
+import {useAuthStore} from "@/common/store/auth.store";
 
 export class AuthHttpClient extends BaseHttpClient {
   constructor() {
@@ -13,20 +14,22 @@ export class AuthHttpClient extends BaseHttpClient {
     });
   }
 
-  async login(username: string, password: string): Promise<Boolean> {
+  async login(username: string, password: string): Promise<boolean> {
     try {
-      await this.instance.post(
+      const response = await this.instance.post(
         'auth/login',
-        new URLSearchParams({
-          username,
-          password
-        }),
+        new URLSearchParams({username, password}),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
           }
         }
       );
+
+      const {access_token} = response.data;
+
+      useAuthStore.getState()
+        .login(access_token);
 
       return true;
     } catch (error) {
@@ -39,6 +42,10 @@ export class AuthHttpClient extends BaseHttpClient {
 
       throw new ApiError('Server error', 500);
     }
+  }
+
+  async logout(): Promise<void> {
+    useAuthStore.getState().logout();
   }
 }
 
