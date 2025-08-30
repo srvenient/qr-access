@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response, status
@@ -6,16 +6,16 @@ from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, ExpiredSignatureError
 from starlette.responses import JSONResponse
 
-from app.api.deps import UserAggregateRepositoryDep
+from app.api.deps import UserAggregateRepositoryDep, RefreshTokenAggregateRepositoryDep
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
-from app.api.user.domain.auth_models import Token
+from app.api.user.domain.auth_models import Token, RefreshToken
 from app.api.user.domain.user_models import User, UserCreate
 from app.core import security
 from app.core.config import settings
 
 
-def generate_tokens(user_id: str) -> tuple[Token, str, timedelta]:
+def generate_tokens(user_id: str) -> tuple[Token, str, str, timedelta]:
     access_ttl = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_ttl = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
 
@@ -34,6 +34,7 @@ def generate_tokens(user_id: str) -> tuple[Token, str, timedelta]:
             jti=access_jti,
         ),
         refresh_token_value,
+        refresh_jti,
         refresh_ttl,
     )
 
@@ -65,12 +66,13 @@ async def register_user(
 async def authenticate_user(
         response: Response,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        repository: SQLAlchemyAggregateRootRepository[User] = UserAggregateRepositoryDep
+        user_repository: SQLAlchemyAggregateRootRepository[User] = UserAggregateRepositoryDep,
+        refresh_token_repository: SQLAlchemyAggregateRootRepository[RefreshToken] = RefreshTokenAggregateRepositoryDep
 ) -> Token:
     """
     Authenticate a user and return JWT tokens.
     """
-    user_db = await repository.find_async(email=form_data.username)
+    user_db = await user_repository.find_async(email=form_data.username)
 
     # Avoid variable time (basic protection against user enumeration)
     if not user_db or not user_db.password_hash:
@@ -90,15 +92,24 @@ async def authenticate_user(
 
     if not security.verify_password(form_data.password, user_db.password_hash):
         user_db.register_failed_attempt(settings.FAILED_LOGIN_ATTEMPTS, settings.LOCKOUT_DURATION_MINUTES)
-        await repository.save_async(user_db)
+        await user_repository.save_async(user_db)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     user_db.reset_failed_attempts()
 
-    await repository.save_async(user_db)
+    await user_repository.save_async(user_db)
 
     # Generate access and refresh tokens
-    token, refresh_token_value, refresh_ttl = generate_tokens(str(user_db.id))
+    token, refresh_token_value, refresh_jti, refresh_ttl = generate_tokens(str(user_db.id))
+
+    # Store refresh token in the database
+    stored_refresh_token = RefreshToken(
+        jti=refresh_jti,
+        user_id=user_db.id,
+        expires_at=datetime.now(timezone.utc) + refresh_ttl,
+        revoked=False
+    )
+    await refresh_token_repository.save_async(stored_refresh_token)
 
     # Set refresh token in HttpOnly cookie
     response.set_cookie(
@@ -114,7 +125,11 @@ async def authenticate_user(
     return token
 
 
-async def refresh_token(request: Request, response: Response) -> Token:
+async def refresh_token(
+        request: Request,
+        response: Response,
+        refresh_token_repository: SQLAlchemyAggregateRootRepository[RefreshToken] = RefreshTokenAggregateRepositoryDep
+) -> Token:
     stored_refresh_token = request.cookies.get("refresh_token")
     if not stored_refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
@@ -134,11 +149,26 @@ async def refresh_token(request: Request, response: Response) -> Token:
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
 
-    token, new_refresh_token, refresh_ttl = generate_tokens(user_id)
+    stored_refresh_token = await refresh_token_repository.find_async(jti=payload.get("jti"))
+    if not stored_refresh_token or stored_refresh_token.revoked or stored_refresh_token.expires_at < datetime.now(
+            timezone.utc):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    stored_refresh_token.revoked = True
+    await refresh_token_repository.save_async(stored_refresh_token)
+
+    token, refresh_token_value, refresh_jti, refresh_ttl = generate_tokens(str(user_id))
+
+    new_refresh_token = RefreshToken(
+        jti=refresh_jti,
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) + refresh_ttl,
+    )
+    await refresh_token_repository.save_async(new_refresh_token)
 
     response.set_cookie(
         key="refresh_token",
-        value=new_refresh_token,
+        value=refresh_token_value,
         httponly=True,
         max_age=int(refresh_ttl.total_seconds()),
         expires=int(refresh_ttl.total_seconds()),
@@ -147,3 +177,39 @@ async def refresh_token(request: Request, response: Response) -> Token:
     )
 
     return token
+
+
+async def logout(
+        request: Request,
+        response: Response,
+        refresh_token_repository: SQLAlchemyAggregateRootRepository[RefreshToken] = RefreshTokenAggregateRepositoryDep
+):
+    stored_refresh_token = request.cookies.get("refresh_token")
+    if stored_refresh_token:
+        try:
+            payload: dict = security.jwt.decode(
+                stored_refresh_token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+                audience=security.REFRESH_AUD,
+            )
+            refresh_jti: str | None = payload.get("jti")
+            if refresh_jti:
+                stored_token = await refresh_token_repository.find_async(jti=refresh_jti)
+                if stored_token:
+                    stored_token.revoked = True
+                    await refresh_token_repository.save_async(stored_token)
+        except JWTError:
+            pass  # Ignore errors during logout
+
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        samesite="strict" if settings.ENV == "production" else "lax",
+        secure=settings.COOKIE_SECURE
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Logged out successfully"}
+    )
