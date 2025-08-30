@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, BaseModel
@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.role.domain.role_models import Role
+    from app.api.user.domain.auth_models import RefreshToken
 
 
 class DocumentType(str, Enum):
@@ -75,6 +76,8 @@ class User(UserBase, table=True):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+
+    refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
 
     def register_failed_attempt(self, lockout_threshold: int, lockout_duration_minutes: int) -> None:
         self.failed_attempts += 1
