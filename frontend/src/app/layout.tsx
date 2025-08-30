@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "qr-access",
-  description: "Sistema de control de acceso con QR",
+  description: "QR access control system",
 };
 
 export default function RootLayout({
