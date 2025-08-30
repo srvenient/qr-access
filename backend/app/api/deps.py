@@ -8,6 +8,7 @@ from starlette import status
 from app.api.role.domain.role_models import Role
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
+from app.api.user.domain.auth_models import RefreshToken
 from app.api.user.domain.user_models import User
 from app.core import security
 from app.core.config import settings
@@ -41,6 +42,17 @@ def get_user_aggregate_repository(session: SessionDep) -> SQLAlchemyAggregateRoo
 
 
 UserAggregateRepositoryDep = Depends(get_user_aggregate_repository)
+
+
+def get_refresh_token_aggregate_repository(session: SessionDep) -> SQLAlchemyAggregateRootRepository[RefreshToken]:
+    from app.api.user.domain.auth_models import RefreshToken
+    return SQLAlchemyAggregateRootRepository[RefreshToken](
+        session=session,
+        aggregate_root=RefreshToken
+    )
+
+
+RefreshTokenAggregateRepositoryDep = Depends(get_refresh_token_aggregate_repository)
 
 
 async def get_current_user(
