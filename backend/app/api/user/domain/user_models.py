@@ -15,7 +15,6 @@ class DocumentType(str, Enum):
     FOREIGN_ID = "Foreign_ID"  # CE
     PASSPORT = "Passport"  # PASAPORTE
     CITIZEN_CARD = "Citizen_Card"  # TI
-    TAX_ID = "Tax_ID"  # NIT
 
 
 class UserBase(SQLModel):
@@ -74,8 +73,8 @@ class User(UserBase, table=True):
     failed_attempts: int = Field(default=0)
     lock_until: Optional[datetime] = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
     def register_failed_attempt(self, lockout_threshold: int, lockout_duration_minutes: int) -> None:
         self.failed_attempts += 1
