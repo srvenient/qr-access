@@ -46,21 +46,6 @@ async def login(
     return await auth_service.authenticate_user(response, form_data)
 
 
-@router.get("/validate-token")
-async def validate_token(
-        authorization: str = Header(None)
-):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header missing")
-
-    token = authorization.split(" ")[1]
-
-    is_valid, payload = await AuthService.validate_token(token)
-    if not is_valid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    return {"message": "Token is valid", "payload": payload}
-
-
 @router.post("/logout", status_code=204)
 async def logout(response: Response):
     response.delete_cookie(key="access_token")

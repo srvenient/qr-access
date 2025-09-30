@@ -27,17 +27,6 @@ class AuthService:
         )
         return Token(access_token=access_token)
 
-    @staticmethod
-    async def validate_token(token: str) -> tuple[bool, Any]:
-        try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            user_id: str = payload.get("sub")
-            if user_id is None:
-                return False, None
-            return True, payload
-        except jwt.PyJWTError:
-            return False, None
-
     async def get_user_by_email(self, email: str) -> User | None:
         return await self.user_repo.find_async(email=email)
 
