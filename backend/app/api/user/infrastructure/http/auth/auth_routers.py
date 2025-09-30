@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.api.deps import AuthServiceDep, UserAggregateRootRepositoryDep
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
-from app.api.user.application.auth_services import AuthService
+from app.api.user.application.auth_service import AuthService
 from app.api.user.domain.user_models import UserCreate, User
 from app.core import security
 from app.core.config import settings

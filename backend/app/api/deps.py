@@ -5,7 +5,7 @@ from sqlmodel import Session
 
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
-from app.api.user.application.auth_services import AuthService
+from app.api.user.application.auth_service import AuthService
 from app.api.user.domain.user_models import User
 from app.core.db import engine
 
