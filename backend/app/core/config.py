@@ -1,7 +1,12 @@
 import secrets
 from typing import Annotated, Any
 
-from pydantic import AnyUrl, BeforeValidator, computed_field
+from pydantic import (
+    AnyUrl,
+    BeforeValidator,
+    EmailStr,
+    computed_field,
+)
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -29,11 +34,9 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     ENV: str = "development"  # one of "development", "production", "testing"
-    COOKIE_SECURE: bool = False  # True in production
 
     SECRET_KEY: str = secrets.token_urlsafe(32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15 # minutes
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = 30 # days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # minutes
     ALGORITHM: str = "HS256"
 
     FAILED_LOGIN_ATTEMPTS: int = 5
@@ -76,6 +79,9 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
         )
+
+    FIRST_SUPERUSER: EmailStr
+    FIRST_SUPERUSER_PASSWORD: str
 
 
 settings = Settings()  # type: ignore

@@ -1,108 +1,49 @@
-from datetime import datetime, timezone, timedelta
-from enum import Enum
-from typing import Optional, TYPE_CHECKING, List
-from uuid import UUID, uuid4
+import datetime
+import uuid
+from typing import TYPE_CHECKING, Optional
 
-from pydantic import EmailStr, BaseModel
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
     from app.api.role.domain.role_models import Role
-    from app.api.user.domain.auth_models import RefreshToken
-
-
-class DocumentType(str, Enum):
-    ID_CARD = "ID_Card"  # CC
-    FOREIGN_ID = "Foreign_ID"  # CE
-    PASSPORT = "Passport"  # PASAPORTE
-    CITIZEN_CARD = "Citizen_Card"  # TI
 
 
 class UserBase(SQLModel):
-    email: EmailStr = Field(unique=True, index=True, max_length=255)
+    email: str = Field(index=True, nullable=False, unique=True)
 
-    document_type: DocumentType | None = Field(default=None, nullable=True)
-    document_number: str | None = Field(default=None, max_length=50, nullable=True)
-    full_name: str | None = Field(default=None, max_length=255)
-    phone_number: str | None = Field(default=None, max_length=20, nullable=True)
+    role_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="roles.id",
+        nullable=True
+    )
 
     is_active: bool = Field(default=True, nullable=False)
+    is_superuser: bool = Field(default=False, nullable=False)
 
 
 class UserCreate(UserBase):
-    password: str = Field(min_length=8, max_length=128, nullable=False)
-
-
-class UserRegister(SQLModel):
-    email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
-    full_name: str | None = Field(default=None, max_length=255)
-
-
-class UserUpdate(SQLModel):
-    email: EmailStr | None = Field(default=None, max_length=255)
-    password: str | None = Field(default=None, min_length=8, max_length=40)
-
-
-class UserUpdateMe(SQLModel):
-    email: EmailStr | None = Field(default=None, max_length=255)
-    full_name: str | None = Field(default=None, max_length=255)
-    phone_number: str | None = Field(default=None, max_length=20, nullable=True)
-
-
-class UpdatePassword(SQLModel):
-    current_password: str = Field(min_length=8, max_length=40)
-    new_password: str = Field(min_length=8, max_length=40)
 
 
 class User(UserBase, table=True):
-    """
-    Represents a user in the system.
-    Inherits from SQLModel to ensure it can be used with SQLAlchemy ORM.
-
-    :since: 0.0.1
-    """
     __tablename__ = "users"
 
-    id: UUID = Field(default_factory=uuid4, nullable=False, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    password_hash: str = Field(max_length=128, nullable=False)
+    role: Optional["Role"] = Relationship(back_populates="users")
 
-    role_id: Optional[UUID] = Field(default=None, foreign_key="roles.id")
-    role: Optional["Role"] = Relationship()
+    hashed_password: str = Field(nullable=False)
 
-    failed_attempts: int = Field(default=0)
-    lock_until: Optional[datetime] = Field(default=None)
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-    refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
-
-    def register_failed_attempt(self, lockout_threshold: int, lockout_duration_minutes: int) -> None:
-        self.failed_attempts += 1
-        if self.failed_attempts >= lockout_threshold:
-            self.lock_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_duration_minutes)
-
-    def reset_failed_attempts(self) -> None:
-        self.failed_attempts = 0
-        self.lock_until = None
-
-    def is_locked(self) -> bool:
-        if self.lock_until is None:
-            return False
-        return self.lock_until > datetime.now(timezone.utc)
-
-    # override updated_at automatically
-    def touch(self):
-        self.updated_at = datetime.now(timezone.utc)
+    created_at: datetime.datetime = Field(
+        nullable=False,
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+    updated_at: datetime.datetime = Field(
+        nullable=False,
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column_kwargs={"onupdate": datetime.datetime.now(datetime.timezone.utc)}
+    )
 
 
-# Properties to return via API, id is always required
 class UserPublic(UserBase):
-    pass
-
-
-class UsersPublic(SQLModel):
-    data: list[UserPublic]
-    count: int
+    id: uuid.UUID

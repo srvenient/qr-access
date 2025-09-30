@@ -1,215 +1,94 @@
-from datetime import timedelta, datetime, timezone
-from typing import Annotated
+import jwt
 
-from fastapi import Depends, HTTPException, Request, Response, status
+from typing import Any
+
+from fastapi import Response, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError, ExpiredSignatureError
-from starlette.responses import JSONResponse
 
-from app.api.deps import UserAggregateRepositoryDep, RefreshTokenAggregateRepositoryDep
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
-from app.api.user.domain.auth_models import Token, RefreshToken
-from app.api.user.domain.user_models import User, UserCreate
+from app.api.user.domain.auth_models import Token
+from app.api.user.domain.user_models import User
 from app.core import security
 from app.core.config import settings
 
 
-def generate_tokens(user_id: str) -> tuple[Token, str, str, timedelta]:
-    access_ttl = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_ttl = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+class AuthService:
+    def __init__(self, user_repo: SQLAlchemyAggregateRootRepository[User]):
+        self.user_repo = user_repo
 
-    access_token, access_jti = security.sign_jwt(
-        user_id, security.ACCESS_AUD, access_ttl
-    )
-    refresh_token_value, refresh_jti = security.sign_jwt(
-        user_id, security.REFRESH_AUD, refresh_ttl
-    )
-
-    return (
-        Token(
-            access_token=access_token,
-            token_type="bearer",
-            expires_in=access_ttl.total_seconds(),
-            jti=access_jti,
-        ),
-        refresh_token_value,
-        refresh_jti,
-        refresh_ttl,
-    )
-
-
-async def register_user(
-        user_create: UserCreate,
-        repository: SQLAlchemyAggregateRootRepository[User] = UserAggregateRepositoryDep
-):
-    """
-    Register a new user in the system.
-    """
-    # Check if the user already exists
-    existing_user = await repository.find_async(email=user_create.email)
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
-
-    password_hash = security.get_password_hash(user_create.password)
-
-    # Save the new user
-    user = User.model_validate(
-        user_create,
-        update={"password_hash": password_hash}
-    )
-
-    await repository.save_async(user)
-    return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "User registered successfully"})
-
-
-async def authenticate_user(
-        response: Response,
-        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        user_repository: SQLAlchemyAggregateRootRepository[User] = UserAggregateRepositoryDep,
-        refresh_token_repository: SQLAlchemyAggregateRootRepository[RefreshToken] = RefreshTokenAggregateRepositoryDep
-) -> Token:
-    """
-    Authenticate a user and return JWT tokens.
-    """
-    user_db = await user_repository.find_async(email=form_data.username)
-
-    # Avoid variable time (basic protection against user enumeration)
-    if not user_db or not user_db.password_hash:
-        security.verify_password(form_data.password, security.DUMMY_HASHED_PASSWORD)
-
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
-    if not user_db.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
-
-    if user_db.is_locked():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User is locked until {user_db.lock_until.isoformat()}",
-            headers={"WWW-Authenticate": "Bearer"},
+    @staticmethod
+    def issue_access_token(user: User) -> Token:
+        access_token, jti = security.create_access_token(
+            subject=str(user.id),
+            aud=security.ACCESS_AUD,
+            ttl=security.timedelta(minutes=security.settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+            # extra={"role": user.role.name} if user.role else None
         )
+        return Token(access_token=access_token)
 
-    if not security.verify_password(form_data.password, user_db.password_hash):
-        user_db.register_failed_attempt(settings.FAILED_LOGIN_ATTEMPTS, settings.LOCKOUT_DURATION_MINUTES)
-        await user_repository.save_async(user_db)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    user_db.reset_failed_attempts()
-
-    await user_repository.save_async(user_db)
-
-    # Generate access and refresh tokens
-    token, refresh_token_value, refresh_jti, refresh_ttl = generate_tokens(str(user_db.id))
-
-    # Store refresh token in the database
-    stored_refresh_token = RefreshToken(
-        jti=refresh_jti,
-        user_id=user_db.id,
-        expires_at=datetime.now(timezone.utc) + refresh_ttl,
-        revoked=False
-    )
-    await refresh_token_repository.save_async(stored_refresh_token)
-
-    # Set refresh token in HttpOnly cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token_value,
-        httponly=True,
-        max_age=int(refresh_ttl.total_seconds()),
-        expires=int(refresh_ttl.total_seconds()),
-        samesite="strict" if settings.ENV == "production" else "lax",
-        secure=settings.COOKIE_SECURE  # Set to True in production with HTTPS
-    )
-
-    return token
-
-
-async def refresh_token(
-        request: Request,
-        response: Response,
-        refresh_token_repository: SQLAlchemyAggregateRootRepository[RefreshToken] = RefreshTokenAggregateRepositoryDep
-) -> Token:
-    stored_refresh_token = request.cookies.get("refresh_token")
-    if not stored_refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
-
-    try:
-        payload: dict = security.jwt.decode(
-            stored_refresh_token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-            audience=security.REFRESH_AUD,
-        )
-        user_id: str | None = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    except ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
-
-    stored_refresh_token = await refresh_token_repository.find_async(jti=payload.get("jti"))
-    if not stored_refresh_token or stored_refresh_token.revoked or stored_refresh_token.expires_at < datetime.now(
-            timezone.utc):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-
-    stored_refresh_token.revoked = True
-    await refresh_token_repository.save_async(stored_refresh_token)
-
-    token, refresh_token_value, refresh_jti, refresh_ttl = generate_tokens(str(user_id))
-
-    new_refresh_token = RefreshToken(
-        jti=refresh_jti,
-        user_id=user_id,
-        expires_at=datetime.now(timezone.utc) + refresh_ttl,
-    )
-    await refresh_token_repository.save_async(new_refresh_token)
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token_value,
-        httponly=True,
-        max_age=int(refresh_ttl.total_seconds()),
-        expires=int(refresh_ttl.total_seconds()),
-        samesite="strict" if settings.ENV == "production" else "lax",
-        secure=settings.COOKIE_SECURE  # Set to True in production with HTTPS
-    )
-
-    return token
-
-
-async def logout(
-        request: Request,
-        response: Response,
-        refresh_token_repository: SQLAlchemyAggregateRootRepository[RefreshToken] = RefreshTokenAggregateRepositoryDep
-):
-    stored_refresh_token = request.cookies.get("refresh_token")
-    if stored_refresh_token:
+    @staticmethod
+    async def validate_token(token: str) -> tuple[bool, Any]:
         try:
-            payload: dict = security.jwt.decode(
-                stored_refresh_token,
-                settings.SECRET_KEY,
-                algorithms=[settings.ALGORITHM],
-                audience=security.REFRESH_AUD,
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            user_id: str = payload.get("sub")
+            if user_id is None:
+                return False, None
+            return True, payload
+        except jwt.PyJWTError:
+            return False, None
+
+    async def get_user_by_email(self, email: str) -> User | None:
+        return await self.user_repo.find_async(email=email)
+
+    async def authenticate_user(
+            self,
+            response: Response,
+            form_data: OAuth2PasswordRequestForm
+    ) -> dict[str, str]:
+        form_password = form_data.password
+
+        user: User = await self.get_user_by_email(form_data.username)
+
+        # Avoid timing attacks by using a constant-time comparison
+        if not user:
+            # If user is not found, we still call verify_password to mitigate timing attacks
+            security.verify_password(
+                form_password,
+                security.DUMMY_HASHED_PASSWORD
             )
-            refresh_jti: str | None = payload.get("jti")
-            if refresh_jti:
-                stored_token = await refresh_token_repository.find_async(jti=refresh_jti)
-                if stored_token:
-                    stored_token.revoked = True
-                    await refresh_token_repository.save_async(stored_token)
-        except JWTError:
-            pass  # Ignore errors during logout
 
-    response.delete_cookie(
-        key="refresh_token",
-        httponly=True,
-        samesite="strict" if settings.ENV == "production" else "lax",
-        secure=settings.COOKIE_SECURE
-    )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
 
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={"message": "Logged out successfully"}
-    )
+        # Verify the password is correct
+        if not security.verify_password(form_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+
+        # Check if the user is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user"
+            )
+
+        # Generate JWT token
+        access_token = AuthService.issue_access_token(user)
+
+        # Set the token in an HttpOnly cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token.access_token,
+            httponly=True,
+            secure=True if settings.ENV == "production" else False,
+            samesite="strict" if settings.ENV == "production" else "lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+
+        return {"detail": "Login successful"}

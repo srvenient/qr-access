@@ -13,27 +13,7 @@ class RoleBase(SQLModel):
     description: str | None = Field(default=None, nullable=True)
 
 
-class RoleCreate(RoleBase):
-    pass
-
-
-class RoleRegister(SQLModel):
-    name: str = Field(max_length=255)
-    description: str | None = Field(default=None, max_length=255)
-
-
-class RoleUpdate(RoleBase):
-    name: str | None = Field(default=None, max_length=255)  # type: ignore
-    description: str | None = Field(default=None, nullable=True)
-
-
 class Role(RoleBase, table=True):
-    """
-    Represents a role in the system.
-    Inherits from SQLModel to ensure it can be used with SQLAlchemy ORM.
-
-    :since: 0.0.1
-    """
     __tablename__ = "roles"
 
     id: UUID = Field(default_factory=uuid4, nullable=False, primary_key=True)
