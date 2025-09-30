@@ -23,7 +23,7 @@ class AuthService:
             subject=str(user.id),
             aud=security.ACCESS_AUD,
             ttl=security.timedelta(minutes=security.settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-            # extra={"role": user.role.name} if user.role else None
+            extra={"role": user.role.name} if user.role else None
         )
         return Token(access_token=access_token)
 
