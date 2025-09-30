@@ -1,8 +1,7 @@
 import {BaseHttpClient} from "@/common/http-client/http-client";
 import config from "@/config/config";
-import {ApiError} from "@/common/errors/api-error";
 import axios from "axios";
-import {useAuthStore} from "@/common/store/auth.store";
+import {ApiError} from "@/common/errors/api-error";
 
 export class AuthHttpClient extends BaseHttpClient {
   constructor() {
@@ -10,28 +9,18 @@ export class AuthHttpClient extends BaseHttpClient {
       baseURL: config.clients.fastapi.baseURL,
       timeout: config.clients.fastapi.timeout,
       keepAlive: config.clients.fastapi.keepAlive,
-      withCredentials: config.clients.fastapi.withCredentials,
     });
   }
 
-  async login(username: string, password: string): Promise<boolean> {
+  async login(username: string, password: string): Promise<void> {
     try {
-      const response = await this.instance.post(
-        'auth/login',
+      await this.instance.post(
+        '/auth/login',
         new URLSearchParams({username, password}),
         {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+          headers: {"Content-Type": "application/x-www-form-urlencoded"}
         }
       );
-
-      const {access_token} = response.data;
-
-      useAuthStore.getState()
-        .login(access_token);
-
-      return true;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         throw new ApiError(
@@ -42,10 +31,6 @@ export class AuthHttpClient extends BaseHttpClient {
 
       throw new ApiError('Server error', 500);
     }
-  }
-
-  async logout(): Promise<void> {
-    useAuthStore.getState().logout();
   }
 }
 
