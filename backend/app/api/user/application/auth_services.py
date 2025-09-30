@@ -1,9 +1,9 @@
-import jwt
-
-from typing import Any
+from typing import Any, Coroutine
 
 from fastapi import Response, HTTPException, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from starlette.responses import JSONResponse
 
 from app.api.shared.aggregate.infrastructure.repository.sql.sql_alchemy_aggregate_root_repository import \
     SQLAlchemyAggregateRootRepository
@@ -34,7 +34,7 @@ class AuthService:
             self,
             response: Response,
             form_data: OAuth2PasswordRequestForm
-    ) -> dict[str, str]:
+    ) -> JSONResponse:
         form_password = form_data.password
 
         user: User = await self.get_user_by_email(form_data.username)
@@ -69,8 +69,12 @@ class AuthService:
         # Generate JWT token
         access_token = AuthService.issue_access_token(user)
 
-        # Set the token in an HttpOnly cookie
-        response.set_cookie(
+        resp = JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"detail": "Login successful"}
+        )
+
+        resp.set_cookie(
             key="access_token",
             value=access_token.access_token,
             httponly=True,
@@ -80,4 +84,4 @@ class AuthService:
             expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
 
-        return {"detail": "Login successful"}
+        return resp
