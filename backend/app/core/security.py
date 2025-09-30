@@ -23,27 +23,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
-
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password) -> str:
-    """Hash a password using bcrypt."""
-    return pwd_context.hash(password)
-
-
-def sign_jwt(subject: str, aud: str, ttl: timedelta, extra: Optional[dict] | None = None) -> tuple[str, str]:
+def create_access_token(subject: str, aud: str, ttl: timedelta, extra: Optional[dict] | None = None) -> tuple[str, str]:
     """
     Sign a JWT token with the given subject, audience, and time-to-live.
 
@@ -54,7 +34,7 @@ def sign_jwt(subject: str, aud: str, ttl: timedelta, extra: Optional[dict] | Non
     :return: Signed JWT token as a string.
     """
     jti = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "aud": aud,
@@ -68,6 +48,15 @@ def sign_jwt(subject: str, aud: str, ttl: timedelta, extra: Optional[dict] | Non
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return token, jti
+
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password) -> str:
+    """Hash a password using bcrypt."""
+    return pwd_context.hash(password)
 
 
 def generate_2fa_secret_key() -> str:
