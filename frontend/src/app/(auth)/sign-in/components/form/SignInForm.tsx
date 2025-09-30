@@ -5,6 +5,7 @@ import {SubmitHandler, useForm} from 'react-hook-form';
 import Input from "@/app/components/form/input/Input";
 import PasswordInput from "@/app/components/form/input/PasswordInput";
 import {authHttpClient} from "@/app/(auth)/lib/auth.http-client";
+import {useRouter} from "next/navigation";
 
 type FormValues = {
   username: string;
@@ -21,9 +22,14 @@ export default function SignInForm() {
   });
   const {formState: {isValid, isSubmitting}} = methods;
 
+  const router = useRouter();
+
   const onSubmit: SubmitHandler<FormValues> = async (data: FormValues): Promise<void> => {
     try {
-      await authHttpClient.login(data.username, data.password);
+      const res = await authHttpClient.login(data.username, data.password);
+      if (res !== null) {
+        router.push('/dashboard');
+      }
     } catch (error) {
       console.error('Login failed:', error);
       // Here you can set an error state to display a message to the user
