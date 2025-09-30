@@ -14,13 +14,14 @@ export class AuthHttpClient extends BaseHttpClient {
 
   async login(username: string, password: string): Promise<void> {
     try {
-      await this.instance.post(
+      const res = await this.instance.post(
         '/auth/login',
         new URLSearchParams({username, password}),
         {
           headers: {"Content-Type": "application/x-www-form-urlencoded"}
         }
       );
+      return res.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         throw new ApiError(
